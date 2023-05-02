@@ -1,0 +1,4 @@
+Solution_Com: Burger方程的解析解及其近似解的三维表示。
+Burgers_ada_FunLoss: Burger方程的解析解及其对应近似解的二维表示及其特定时刻的解的表示。
+Burgers_ada_FunLoss1: Burger方程的近似解在可行域的误差的二维表示。
+loss_cmp: 不同自适应策略训练loss曲线对比。
