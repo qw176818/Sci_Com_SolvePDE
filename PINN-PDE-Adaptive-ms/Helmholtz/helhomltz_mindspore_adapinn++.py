@@ -22,6 +22,7 @@ class NetMS(nn.Cell):
         self.h2_layer = nn.Dense(NN, NN, weight_init = XavierUniform())
         self.h3_layer = nn.Dense(NN, NN, weight_init = XavierUniform())
         self.h4_layer = nn.Dense(NN, NN, weight_init = XavierUniform())
+        self.h5_layer = nn.Dense(NN, NN, weight_init = XavierUniform())
         self.output_layer = nn.Dense(NN, 1, weight_init = XavierUniform())
         self.tanh = nn.Tanh()
         self.lb = lb
@@ -37,7 +38,8 @@ class NetMS(nn.Cell):
         out3 = self.tanh(self.h2_layer(out2))
         out4 = self.tanh(self.h3_layer(out3))
         out5 = self.tanh(self.h4_layer(out4))
-        out = self.output_layer(out5)
+        out6 = self.tanh(self.h5_layer(out5))
+        out = self.output_layer(out6)
         return out
 def forward_fn1(xxx, ttt):
     x = ops.concat((xxx, ttt), axis=1)
@@ -143,7 +145,7 @@ if __name__ == "__main__":
             print(epoch, "Traning Loss:", loss)
             print(f'times {epoch}  -  loss: {loss}')
     elapsed = time.time() - start_time
-    # mindspore.save_checkpoint(net, "pinn_ode_cmp_mindspore_tmp.ckpt")
+    mindspore.save_checkpoint(net, "pinn_ode_cmp_mindspore_tmp.ckpt")
     X_star = ms.Tensor(X_star, dtype = ms.float32)
     u_pred = net(X_star)
     error_u = np.linalg.norm(u_star - u_pred.asnumpy(), 2) / np.linalg.norm(u_star, 2)
@@ -158,5 +160,6 @@ if __name__ == "__main__":
     # bx = fig.add_subplot(1, 2, 2, projection='3d')
     # bx.plot_surface(xx, yy, u_pred, cmap='viridis', edgecolor='none')
     # bx.set_title('Helmholtz-PS')
+    # plt.show()
     # plt.savefig('helmholtz_MindSpore1.pdf')
     # plt.savefig('helmholtz_MindSpore1.eps')
