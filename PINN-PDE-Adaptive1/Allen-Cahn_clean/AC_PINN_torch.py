@@ -2,34 +2,32 @@ import sys
 sys.path.insert(0, '../../Utilities/')
 
 import numpy as np
+import math
 import matplotlib.pyplot as plt
 import scipy.io
 from scipy.interpolate import griddata
 from pyDOE import lhs
 from plotting import newfig, savefig
-from mpl_toolkits.mplot3d import Axes3D
-import time
 import matplotlib.gridspec as gridspec
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import torch
 import torch.nn as nn
 from torch import autograd
 import os
-from torch.utils.tensorboard import SummaryWriter
-np.random.seed(1234)
 
+np.random.seed(1234)
 class Net(nn.Module):
     def __init__(self, NN, lb, ub):
         super(Net, self).__init__()
         self.input_layer = nn.Linear(2, NN)
         self.h1_layer = nn.Linear(NN, NN)
         self.h2_layer = nn.Linear(NN, NN)
-        # self.h3_layer = nn.Linear(NN, NN)
-        # self.h4_layer = nn.Linear(NN, NN)
+        self.h3_layer = nn.Linear(NN, NN)
+        self.h4_layer = nn.Linear(NN, NN)
         self.output_layer = nn.Linear(NN, 1)
-        self.a1 = nn.Parameter(torch.tensor([1.0], requires_grad = True))
-        self.a2 = nn.Parameter(torch.tensor([1.0], requires_grad = True))
-        self.a3 = nn.Parameter(torch.tensor([1.0], requires_grad = True))
+        # self.a1 = nn.Parameter(torch.tensor([1.0], requires_grad = True))
+        # self.a2 = nn.Parameter(torch.tensor([1.0], requires_grad = True))
+        # self.a3 = nn.Parameter(torch.tensor([1.0], requires_grad = True))
         # self.a4 = nn.Parameter(torch.tensor([1.0], requires_grad = True))
         # self.a5 = nn.Parameter(torch.tensor([1.0], requires_grad = True))
         self.lb = lb
@@ -45,22 +43,21 @@ class Net(nn.Module):
         self.ec = nn.Parameter(torch.tensor([1.0], requires_grad = True))
     def forward(self, x):
         x1 = 2.0 * (x - self.lb) / (self.ub - self.lb) - 1.0
-        out1 = torch.tanh(self.a1 * self.input_layer(x1))
-        out2 = torch.tanh(self.a2 * self.h1_layer(out1))
-        out3 = torch.tanh(self.a3 * self.h2_layer(out2))
-        # out4 = torch.tanh(self.a4 * self.h3_layer(out3))
-        # out5 = torch.tanh(self.a5 * self.h4_layer(out4))
-        out_final = self.output_layer(out3)
+        out1 = torch.tanh(self.input_layer(x1))
+        out2 = torch.tanh(self.h1_layer(out1))
+        out3 = torch.tanh(self.h2_layer(out2))
+        out4 = torch.tanh(self.h3_layer(out3))
+        out5 = torch.tanh(self.h4_layer(out4))
+        out_final = self.output_layer(out5)
         return out_final
-
 def init_weights1(model):
     if isinstance(model, nn.Linear):
         torch.nn.init.xavier_uniform(model.weight)
         model.bias.data.fill_(0)
 
 def PDE(x, t, net):
-    x = np.reshape(x, (102912, 1))
-    t = np.reshape(t, (102912, 1))
+    x = np.reshape(x, (20000, 1))
+    t = np.reshape(t, (20000, 1))
     x = torch.from_numpy(x)
     x = torch.tensor(x, dtype = torch.float32)
     t = torch.from_numpy(t)
@@ -94,7 +91,6 @@ def PDE(x, t, net):
                         allow_unused = True)
     u_xx2 = u_xx[0].to(device)
     return u_t2 - (0.0001) * u_xx2 + 5 * u * u * u - 5 * u
-
 def PDE1(x, t, net):
     x.requires_grad_(True)
     t.requires_grad_(True)
@@ -111,16 +107,12 @@ def PDE1(x, t, net):
                         allow_unused = True)
     u_x2 = u_x[0].to(device)
     return u_x2
-
 if __name__ == "__main__":
     # 1. Data Process
     noise = 0.0
-
     N_u = 100
-    N_f = 10000
-
+    N_f = 20000
     data = scipy.io.loadmat('AC.mat')
-
     t = data['tt'].flatten()[: ,None]
     x = data['x'].flatten()[: ,None]
     Exact = np.real(data['uu']).T
@@ -133,10 +125,9 @@ if __name__ == "__main__":
     # Doman bounds
     lb = X_star.min(0)
     ub = X_star.max(0)
-    lb1 = np.array([-0.5, 0])
-    ub1 = np.array([0.5, 1])
+
     # Initial Points
-    X_i_train = np.hstack((X[-1:0 ,:].T, T[-1:0 ,:].T))
+    X_i_train = np.hstack((X[0:1 ,:].T, T[0:1 ,:].T))
     u_i_train = Exact[0:1 ,:].T
 
     # Boundary Points
@@ -151,11 +142,11 @@ if __name__ == "__main__":
     X_b_train = X_b_train[idx, :]
     u_b_train = u_b_train[idx, :]
 
-    X_f_train = X_star.copy()
+    X_f_train = lb + (ub -lb) * lhs(2, N_f)
     xx = X_f_train[:, 0]
     tt = X_f_train[:, 1]
 
-    os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+    os.environ['CUDA_VISIBLE_DEVICES'] = '1'
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     # 定义的神经网络
     net = Net(50, lb, ub)
@@ -179,7 +170,7 @@ if __name__ == "__main__":
     y0_r = torch.tensor(u_i_train, dtype=torch.float32)
     x1 = torch.tensor(X_b_train, dtype=torch.float32)
     y1_r = torch.tensor(u_b_train, dtype=torch.float32)
-    ca_all_zeros = autograd.Variable(torch.from_numpy(np.zeros((102912, 1))).float(), requires_grad=False)
+    ca_all_zeros = autograd.Variable(torch.from_numpy(np.zeros((20000, 1))).float(), requires_grad=False)
 
     x0 = x0.to(device)
     y0_r = y0_r.to(device)
@@ -202,21 +193,9 @@ if __name__ == "__main__":
     #     dy2 = PDE1(x3, t3, net)
     #     mse_b1 = mse_loss_function(y1, y2)
     #     mse_b2 = mse_loss_function(dy1, dy2)
-    #     # x1[:, 0] = -x1[:, 0]
-    #     # y1_x = PDE1(x1[:, 0], x1[:, 1], net)
-    #     # y2_x = PDE1(-x1[:, 0], x1[:, 1], net)
-    #     # mse_b3 = mse_loss_function(y1_x, y2_x）
-    #     # X_f1_train = lb + (ub - lb) * lhs(2, N_f)
-    #     # X_f2_train = lb + (ub - lb) * lhs(2, N_f)
-    #     # # X_f1_train = lb1 + (ub1 - lb1) *lhs(2, 5000)
-    #     # # X_f_train = np.concatenate((X_f_train, X_f1_train), axis= 0)
-    #
     #     ca_out = PDE(xx, tt, net)
     #     mse_f = mse_loss_function(ca_out, ca_all_zeros)
-    #
-    #     loss = mse_b1  + mse_b2 + mse_i + mse_f
-    #     # torch.log(net.eb * net.ec * net.ei)
-    #     # print(net.eb, net.ec, net.ei)
+    #     loss = (mse_b1 + mse_b2) +  mse_i + mse_f
     #     loss.backward()
     #     optimizer.step()
     #
@@ -224,9 +203,7 @@ if __name__ == "__main__":
     #         print(epoch, "Traning Loss:", loss.data)
     #         print(f'times {epoch}  -  loss: {loss.item()}')
     # torch.save(net.state_dict(), "./model_pinn")
-    net.load_state_dict(torch.load("model_pinn"))
-
-
+    net.load_state_dict(torch.load("./model_pinn_ada_fun_loss"))
     X_star = torch.tensor(X_star, dtype = torch.float32)
     X_star_GPU = X_star.to(device)
 
@@ -256,9 +233,10 @@ if __name__ == "__main__":
     plt.show()
     # savefig("./figures/img_predict_adapinn+")
 
-
-    U_pred = griddata(X_star.numpy(), u_pred.detach().numpy().flatten(), (X, T), method='cubic')
+    # u_pred = u_star
+    U_pred = griddata(X_star.numpy(), u_pred.flatten(), (X, T), method='cubic')
     Error = np.abs(Exact - U_pred)
+
     ######################################################################
     ############################# Plotting ###############################
     ######################################################################
@@ -271,7 +249,7 @@ if __name__ == "__main__":
     gs0.update(top=1 - 0.06, bottom=1 - 1 / 3, left=0.1, right=0.9, wspace=0.5)
     ax = plt.subplot(gs0[0, 0])
 
-    h = ax.imshow(U_pred.T, interpolation='nearest', cmap='rainbow',
+    h = ax.imshow(Exact.T, interpolation='nearest', cmap='rainbow',
                   extent=[t.min(), t.max(), x.min(), x.max()],
                   origin='lower', aspect='auto')
     divider = make_axes_locatable(ax)
@@ -293,7 +271,7 @@ if __name__ == "__main__":
 
     ax = plt.subplot(gs0[0, 1])
 
-    h = ax.imshow(Exact.T, interpolation='nearest', cmap='rainbow',
+    h = ax.imshow(U_pred.T, interpolation='nearest', cmap='rainbow',
                   extent=[t.min(), t.max(), x.min(), x.max()],
                   origin='lower', aspect='auto')
     divider = make_axes_locatable(ax)
@@ -304,9 +282,9 @@ if __name__ == "__main__":
     #        clip_on=False)
 
     # line = np.linspace(x.min(), x.max(), 2)[:, None]
-    # ax.plot(t[25] * np.ones((2, 1)), line, 'w-', linewidth=1)
     # ax.plot(t[50] * np.ones((2, 1)), line, 'w-', linewidth=1)
-    # ax.plot(t[75] * np.ones((2, 1)), line, 'w-', linewidth=1)
+    # ax.plot(t[100] * np.ones((2, 1)), line, 'w-', linewidth=1)
+    # ax.plot(t[150] * np.ones((2, 1)), line, 'w-', linewidth=1)
 
     ax.set_xlabel('$t$')
     ax.set_ylabel('$x$')
@@ -317,8 +295,8 @@ if __name__ == "__main__":
     gs1.update(top=1 - 1 / 3, bottom=0, left=0.1, right=0.9, wspace=0.5)
 
     ax = plt.subplot(gs1[0, 0])
-    ax.plot(x, Exact[25, :], 'b-', linewidth=2, label='Exact')
-    ax.plot(x, U_pred[25, :], 'r--', linewidth=2, label='Prediction')
+    ax.plot(x, Exact[50, :], 'b-', linewidth=2, label='Exact')
+    ax.plot(x, U_pred[50, :], 'r--', linewidth=2, label='Prediction')
     ax.set_xlabel('$x$')
     ax.set_ylabel('$u(t,x)$')
     ax.set_title('$t = 0.25$', fontsize=10)
@@ -327,8 +305,8 @@ if __name__ == "__main__":
     ax.set_ylim([-1.1, 1.1])
 
     ax = plt.subplot(gs1[0, 1])
-    ax.plot(x, Exact[50, :], 'b-', linewidth=2, label='Exact')
-    ax.plot(x, U_pred[50, :], 'r--', linewidth=2, label='Prediction')
+    ax.plot(x, Exact[100, :], 'b-', linewidth=2, label='Exact')
+    ax.plot(x, U_pred[100, :], 'r--', linewidth=2, label='Prediction')
     ax.set_xlabel('$x$')
     ax.set_ylabel('$u(t,x)$')
     ax.axis('square')
@@ -338,8 +316,8 @@ if __name__ == "__main__":
     ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.35), ncol=5, frameon=False)
 
     ax = plt.subplot(gs1[0, 2])
-    ax.plot(x, Exact[75, :], 'b-', linewidth=2, label='Exact')
-    ax.plot(x, U_pred[75, :], 'r--', linewidth=2, label='Prediction')
+    ax.plot(x, Exact[150, :], 'b-', linewidth=2, label='Exact')
+    ax.plot(x, U_pred[150, :], 'r--', linewidth=2, label='Prediction')
     ax.set_xlabel('$x$')
     ax.set_ylabel('$u(t,x)$')
     ax.axis('square')
@@ -347,4 +325,4 @@ if __name__ == "__main__":
     ax.set_ylim([-1.1, 1.1])
     ax.set_title('$t = 0.75$', fontsize=10)
     plt.show()
-    # savefig('./figures/Allen-Cahn_pinn')
+    # savefig('./figures/Allen-Cahn_adapinn+')

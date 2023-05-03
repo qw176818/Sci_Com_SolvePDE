@@ -31,19 +31,19 @@ class Net(nn.Module):
         # self.a3 = nn.Parameter(torch.tensor([1.0], requires_grad = True))
         # self.a4 = nn.Parameter(torch.tensor([1.0], requires_grad = True))
         # self.a5 = nn.Parameter(torch.tensor([1.0], requires_grad = True))
-        # self.lb = lb
-        # self.lb = self.lb.astype(np.float32)
-        # self.lb = torch.tensor(self.lb)
-        # self.ub = ub
-        # self.ub = self.ub.astype(np.float32)
-        # self.ub = torch.tensor(self.ub)
+        self.lb = lb
+        self.lb = self.lb.astype(np.float32)
+        self.lb = torch.tensor(self.lb)
+        self.ub = ub
+        self.ub = self.ub.astype(np.float32)
+        self.ub = torch.tensor(self.ub)
         # self.n = 1
         self.eb = nn.Parameter(torch.tensor([1.0], requires_grad = True))
         self.ei = nn.Parameter(torch.tensor([1.0], requires_grad = True))
         self.ec = nn.Parameter(torch.tensor([1.0], requires_grad = True))
     def forward(self, x):
-        # x1 = 2.0 * (x - self.lb) / (self.ub - self.lb) - 1.0
-        out1 = torch.tanh(self.input_layer(x))
+        x1 = 2.0 * (x - self.lb) / (self.ub - self.lb) - 1.0
+        out1 = torch.tanh(self.input_layer(x1))
         out2 = torch.tanh(self.h1_layer(out1))
         out3 = torch.tanh(self.h2_layer(out2))
         out4 = torch.tanh(self.h3_layer(out3))
@@ -66,8 +66,8 @@ def PDE(x, t, net):
     x.requires_grad_(True)
     t.requires_grad_(True)
     X = torch.concat((x, t), dim=1)
-    # net.lb = torch.tensor(net.lb, requires_grad = True)
-    # net.ub = torch.tensor(net.ub, requires_grad = True)
+    net.lb = torch.tensor(net.lb, requires_grad = True)
+    net.ub = torch.tensor(net.ub, requires_grad = True)
     X = X.to(device)
     u = net(X)
     u_t = autograd.grad(outputs = u,
@@ -96,8 +96,8 @@ def PDE1(x, t, net):
     x.requires_grad_(True)
     t.requires_grad_(True)
     X = torch.concat((x, t), dim=1)
-    # net.lb = torch.tensor(net.lb, requires_grad = True)
-    # net.ub = torch.tensor(net.ub, requires_grad = True)
+    net.lb = torch.tensor(net.lb, requires_grad = True)
+    net.ub = torch.tensor(net.ub, requires_grad = True)
     X = X.to(device)
     u = net(X)
     u_x = autograd.grad(outputs = u,
@@ -176,11 +176,11 @@ if __name__ == "__main__":
             lub_sum.append([[i, j], [i + 0.5, j + 0.25]])
     lub_sum = np.array(lub_sum)
     os.environ['CUDA_VISIBLE_DEVICES'] = '1'
-    device = torch.device("cpu" if torch.cuda.is_available() else "cuda")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     # 定义的神经网络
     net = Net(50)
-    # net.lb = net.lb.to(device)
-    # net.ub = net.ub.to(device)
+    net.lb = net.lb.to(device)
+    net.ub = net.ub.to(device)
     net = net.to(device)
     net.apply(init_weights1)
     # 定义的损失函数
@@ -197,8 +197,6 @@ if __name__ == "__main__":
 
     x0 = torch.tensor(X_i_train, dtype=torch.float32)
     y0_r = torch.tensor(u_i_train, dtype=torch.float32)
-    # x_s = torch.tensor(X_star, dtype=torch.float32).to(device)
-    # u_s = torch.tensor(u_star, dtype=torch.float32).to(device)
     x1 = torch.tensor(X_b_train, dtype=torch.float32)
     y1_r = torch.tensor(u_b_train, dtype=torch.float32)
 
@@ -297,8 +295,8 @@ if __name__ == "__main__":
     # ax1 = fig.add_subplot(2, 3, 2, projection='3d')
     ax.plot_surface(X, T, u_pred, cmap='viridis', edgecolor='none')
     ax.set_title('Allen-Cahn_clean-PS')
-    savefig("./figures/img_predict_adapinn++")
-
+    # savefig("./figures/img_predict_adapinn++")
+    plt.show()
     # u_pred = u_star
     U_pred = griddata(X_star.numpy(), u_pred.flatten(), (X, T), method='cubic')
     Error = np.abs(Exact - U_pred)
@@ -390,4 +388,5 @@ if __name__ == "__main__":
     ax.set_xlim([-1.1, 1.1])
     ax.set_ylim([-1.1, 1.1])
     ax.set_title('$t = 0.75$', fontsize=10)
-    savefig('./figures/Allen-Cahn_adapinn++')
+    plt.show()
+    # savefig('./figures/Allen-Cahn_adapinn++')
