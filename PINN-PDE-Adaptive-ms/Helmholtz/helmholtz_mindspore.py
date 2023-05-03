@@ -97,7 +97,7 @@ if __name__ == "__main__":
     # 定义的损失函数
     mse_loss_function = ms.nn.MSELoss(reduction='mean')
     optimizer = nn.optim.Adam(net.trainable_params(), learning_rate=1e-4)
-    iteration = 50000
+    iteration = 30000
     x0 = ms.Tensor(X_u_train, dtype=ms.float32)
     y0_r = ms.Tensor(u_train, dtype=ms.float32)
     zero = ops.Zeros()
