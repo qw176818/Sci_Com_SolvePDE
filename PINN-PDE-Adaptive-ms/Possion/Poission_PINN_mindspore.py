@@ -28,7 +28,7 @@ class NetMS(nn.Cell):
         self.a5 = ms.Parameter(ms.Tensor([1.0], mindspore.float32))
         self.a6 = ms.Parameter(ms.Tensor([1.0], mindspore.float32))
 
-        self.n = 1
+        self.n = 5
         self.tanh = nn.Tanh()
         self.lb = lb
         self.lb = self.lb.astype(np.float32)
@@ -106,7 +106,7 @@ if __name__ == "__main__":
     mse_loss_function = nn.MSELoss(reduction='mean')
     # 定义的优化器
     optimizer = nn.optim.Adam(net.trainable_params(), learning_rate=1e-4)
-    iteration = 50000
+    iteration = 30000
     x0 = ms.Tensor(X_u_train, dtype=ms.float32)
     y0_r = ms.Tensor(u_train, dtype=ms.float32)
     zero = ops.Zeros()
@@ -139,6 +139,7 @@ if __name__ == "__main__":
     # bx = fig.add_subplot(1, 2, 2, projection='3d')
     # bx.plot_surface(xx, yy, u_pred, cmap='viridis', edgecolor='none')
     # bx.set_title('Possion-PS')
+    # plt.show()
     # plt.savefig('Possion_MindSpore.pdf')
     # plt.savefig('Possion_MindSpore.eps')
     # U_pred = griddata(X_star.numpy(), u_pred.detach().numpy().flatten(), (xx, yy), method='cubic')
